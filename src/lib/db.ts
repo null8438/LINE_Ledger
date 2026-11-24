@@ -1,8 +1,14 @@
-import { createClient, type Client } from "@libsql/client";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-// ローカルは SQLite ファイル、本番は Turso（libsql://...）を DATABASE_URL で指定する。
-const url = process.env.DATABASE_URL ?? "file:local.db";
-const authToken = process.env.DATABASE_AUTH_TOKEN;
+// データベースは Cloudflare D1（wrangler.jsonc の binding "DB"）。
+// ローカル開発では wrangler が用意するローカルの D1 を使う。
+
+export type Stmt = { sql: string; args?: unknown[] };
+export type Rows = { rows: Record<string, unknown>[]; rowsAffected: number };
+export type DB = {
+  execute(stmt: Stmt | string): Promise<Rows>;
+  batch(stmts: (Stmt | string)[], mode?: "write"): Promise<void>;
+};
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS trips (
@@ -51,20 +57,29 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS settlements_trip ON settlements(trip_id)`,
 ];
 
-const g = globalThis as unknown as { __db?: Promise<Client> };
+let schemaReady: Promise<void> | null = null;
 
-export function db(): Promise<Client> {
-  if (!g.__db) {
-    g.__db = (async () => {
-      const client = createClient({ url, authToken });
-      await client.batch(SCHEMA, "write");
-      return client;
-    })().catch((e) => {
-      g.__db = undefined;
-      throw e;
-    });
-  }
-  return g.__db;
+export async function db(): Promise<DB> {
+  const { env } = await getCloudflareContext({ async: true });
+  const d1 = (env as { DB?: D1Database }).DB;
+  if (!d1) throw new Error("D1 binding 'DB' が見つかりません。wrangler.jsonc を確認してください。");
+  const prep = (s: Stmt | string) =>
+    typeof s === "string" ? d1.prepare(s) : d1.prepare(s.sql).bind(...(s.args ?? []).map((v) => (v === undefined ? null : v)));
+  const client: DB = {
+    async execute(s) {
+      const r = await prep(s).all();
+      return { rows: (r.results ?? []) as Record<string, unknown>[], rowsAffected: r.meta?.changes ?? 0 };
+    },
+    async batch(stmts) {
+      if (stmts.length) await d1.batch(stmts.map(prep));
+    },
+  };
+  schemaReady ??= client.batch(SCHEMA).catch((e) => {
+    schemaReady = null;
+    throw e;
+  });
+  await schemaReady;
+  return client;
 }
 
 export function newId(len = 12): string {

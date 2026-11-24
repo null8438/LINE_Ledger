@@ -14,11 +14,13 @@ export const viewport: Viewport = {
   themeColor: "#06c755",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider liffId={process.env.LIFF_ID ?? process.env.NEXT_PUBLIC_LIFF_ID ?? ""}>{children}</AuthProvider>
       </body>
     </html>
   );

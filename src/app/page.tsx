@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, formatRange, useAuth, yen } from "@/lib/client";
+import { api, formatRange, hasLiff, useAuth, yen } from "@/lib/client";
 import type { TripSummary } from "@/lib/types";
 import { Spinner } from "@/components/ui";
 
@@ -28,7 +28,7 @@ export default function Home() {
       <div className="header">
         <h1>旅の会計</h1>
         {me?.kind === "guest" && (
-          <button className="link-btn" onClick={loginWithLine} hidden={!process.env.NEXT_PUBLIC_LIFF_ID}>
+          <button className="link-btn" onClick={loginWithLine} hidden={!hasLiff()}>
             LINEでログイン
           </button>
         )}

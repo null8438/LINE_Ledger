@@ -1,5 +1,4 @@
-import type { Client, InStatement } from "@libsql/client";
-import { db, newId, now } from "./db";
+import { db, newId, now, type DB as Client, type Stmt as InStatement } from "./db";
 import { HttpError, type Identity } from "./auth";
 import { computeBalances, minimizeTransfers, type ExpenseInput } from "./settle";
 import type { Expense, Member, Settlement, TripDetail, TripStatus, TripSummary } from "./types";

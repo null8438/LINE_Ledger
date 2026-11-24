@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "line-ledger",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "line-ledger" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "line-ledger",
+      // `npx wrangler d1 create line-ledger` で表示される database_id に置き換える
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "vars": {
+    // LINE Developers の LIFF ID（例: 1234567890-AbCdEfGh）。空ならLINEなしのゲストモード
+    "LIFF_ID": "",
+    // LIFF を作った LINE ログインチャネルのチャネルID（IDトークン検証用）
+    "LINE_LOGIN_CHANNEL_ID": ""
+  },
+  "observability": { "enabled": true }
+}

@@ -4,7 +4,9 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export const LIFF_ID = process.env.NEXT_PUBLIC_LIFF_ID ?? "";
+// LIFF ID はサーバー側の環境変数 LIFF_ID から layout 経由で受け取る
+let LIFF_ID = "";
+export const hasLiff = () => !!LIFF_ID;
 
 export type Me = {
   kind: "line" | "guest";
@@ -90,7 +92,8 @@ const AuthCtx = createContext<AuthState & { loginWithLine: () => void }>({
 
 let initPromise: Promise<AuthState> | null = null;
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children, liffId }: { children: ReactNode; liffId: string }) {
+  LIFF_ID = liffId;
   const [state, setState] = useState<AuthState>({ ready: false, me: null, error: null, inClient: false });
   useEffect(() => {
     initPromise ??= initAuth();

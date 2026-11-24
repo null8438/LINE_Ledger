@@ -19,32 +19,44 @@ LINEグループで使う、旅行ごとの立て替え・割り勘・精算ア�
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
+npm run dev        # http://localhost:3000（ローカルの D1 を自動で使います）
 npm test           # 精算ロジックのテスト
+npm run preview    # Cloudflare の実行環境（workerd）で本番に近い形で確認
 ```
 
-`NEXT_PUBLIC_LIFF_ID` を設定しなければLINEなしのゲストモードで動きます（端末ごとのIDで識別、データは `local.db`）。
+`LIFF_ID` が空のあいだはLINEなしのゲストモードで動きます（端末ごとのIDで識別）。
+
+## Cloudflare に公開する（Workers + D1）
+
+無料プランで動きます。
+
+```bash
+npx wrangler login                      # ブラウザで Cloudflare にログイン
+npx wrangler d1 create line-ledger      # データベースを作成
+```
+
+表示された `database_id` を `wrangler.jsonc` の `d1_databases[0].database_id` に貼り付けて、
+
+```bash
+npm run deploy
+```
+
+`https://line-ledger.<あなたのサブドメイン>.workers.dev` が発行されます。テーブルは初回アクセス時に自動で作られます。
+
+GitHub と連携して push のたびに自動デプロイしたい場合は、Cloudflare ダッシュボードの「Workers & Pages → 作成 → Git リポジトリをインポート」でこのリポジトリを選び、デプロイコマンドに `npm run deploy` を指定します（`database_id` を書き込んだ `wrangler.jsonc` をコミットしておく必要があります）。
 
 ## LINEで使えるようにする（LIFF の設定）
 
 1. [LINE Developers](https://developers.line.biz/console/) でプロバイダーを作り、**LINEログイン**チャネルを作成します。
 2. チャネルの「LIFF」タブで LIFF アプリを追加します。
-   - サイズ：`Full`（または `Tall`）
-   - エンドポイントURL：デプロイしたサイトのルート（例 `https://your-app.vercel.app`）
+   - サイズ：`Full`
+   - エンドポイントURL：公開したURLのトップ（例 `https://line-ledger.xxxx.workers.dev`）
    - Scope：`profile` と `openid` にチェック
    - 「シェアターゲットピッカー」をオンにすると、アプリ内から直接グループを選んで送れます
-3. 環境変数を設定します（`.env.example` 参照）。
-   - `NEXT_PUBLIC_LIFF_ID`：LIFF ID（`1234567890-xxxxxxxx`）
+3. `wrangler.jsonc` の `vars` を埋めて、もう一度 `npm run deploy` します（Cloudflare ダッシュボードの「設定 → 変数とシークレット」で設定してもOK）。
+   - `LIFF_ID`：LIFF ID（`1234567890-xxxxxxxx`）
    - `LINE_LOGIN_CHANNEL_ID`：そのLINEログインチャネルのチャネルID。サーバー側でIDトークンを検証し、なりすましを防ぎます。
 4. 共有されるリンクは `https://liff.line.me/{LIFF_ID}/trips/{旅行ID}/add` の形になり、LINEで開くとそのまま入力画面が表示されます。
-
-## デプロイ（例：Vercel + Turso）
-
-1. [Turso](https://turso.tech/) でデータベースを作成し、URL（`libsql://...`）とトークンを取得します。
-2. Vercel にこのリポジトリをインポートし、環境変数 `DATABASE_URL` / `DATABASE_AUTH_TOKEN` / `NEXT_PUBLIC_LIFF_ID` / `LINE_LOGIN_CHANNEL_ID` を設定してデプロイします。テーブルは初回アクセス時に自動で作成されます。
-3. LIFF のエンドポイントURLをデプロイ先に合わせます。
-
-Vercel のようなサーバーレス環境ではローカルファイルの SQLite は消えるため、必ず Turso など外部DBを使ってください。永続ディスクのあるサーバー（VPS等）なら `DATABASE_URL=file:/path/to/data.db` でも動きます。
 
 ## 注意
 
@@ -55,6 +67,6 @@ Vercel のようなサーバーレス環境ではローカルファイルの SQL
 
 - Next.js（App Router）/ React / TypeScript
 - LIFF SDK（`@line/liff`）
-- libSQL（ローカル SQLite / Turso）
+- Cloudflare Workers（OpenNext）+ Cloudflare D1
 - `src/lib/settle.ts`：割り勘と最小送金回数の精算アルゴリズム
 - `src/lib/trips.ts`：データ操作、`src/app/api/**`：API
