@@ -13,8 +13,8 @@
     {
       "binding": "DB",
       "database_name": "line-ledger",
-      // `npx wrangler d1 create line-ledger` で表示される database_id に置き換える
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      // Cloudflare ダッシュボードで作成した D1 の ID
+      "database_id": "58047776-91a3-4ae1-a687-39a094dcc468"
     }
   ],
   "vars": {
