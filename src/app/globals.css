@@ -122,3 +122,20 @@ button { cursor: pointer; }
 
 .loading { padding: 48px 0; text-align: center; color: var(--muted); font-size: 13px; }
 .toast { position: fixed; left: 50%; bottom: calc(var(--bar-h) + 16px); transform: translateX(-50%); background: rgba(0,0,0,.82); color: #fff; padding: 8px 14px; border-radius: 6px; font-size: 13px; z-index: 50; white-space: nowrap; }
+
+/* ホームの旅行カード */
+.trip-card { display: block; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+.trip-card.current { border-color: var(--accent); border-width: 1.5px; }
+.trip-card .head { display: flex; align-items: center; gap: 8px; }
+.trip-card .name { flex: 1; font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trip-card .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.trip-card .foot { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 8px; }
+.trip-card .total { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.trip-card.done { background: var(--sub-bg); opacity: .6; }
+.trip-card.done .total { font-size: 16px; }
+.faces { display: flex; }
+.faces .avatar { width: 24px; height: 24px; font-size: 11px; margin-left: -6px; border: 2px solid var(--bg); }
+.faces .avatar:first-child { margin-left: 0; }
+.trip-card.done .faces .avatar { border-color: var(--sub-bg); }
+.opt .avatar { width: 20px; height: 20px; font-size: 10px; margin-left: -6px; }
+.rows .avatar.sm { width: 26px; height: 26px; font-size: 11px; }

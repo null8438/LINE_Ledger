@@ -115,6 +115,7 @@ function TripView({ trip, reload }: { trip: TripDetail; reload: () => Promise<vo
               const all = e.shareIds.length === trip.members.length;
               const content = (
                 <>
+                  <Avatar member={byId.get(e.payerId)} />
                   <div className="grow">
                     <div className="t">{e.title}</div>
                     <div className="s">

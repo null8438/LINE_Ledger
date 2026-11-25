@@ -36,6 +36,7 @@ export type TripSummary = {
   expenseCount: number;
   createdAt: string;
   completedAt: string | null;
+  faces?: { name: string; pictureUrl: string | null }[];
 };
 
 export type TripDetail = TripSummary & {

@@ -36,7 +36,19 @@ export async function listTrips(me: Identity): Promise<TripSummary[]> {
       ORDER BY COALESCE(t.start_date, t.created_at) DESC, t.created_at DESC`,
     args: [me.userId],
   });
-  return rs.rows.map((r) => toSummary(r as Row));
+  const trips = rs.rows.map((r) => toSummary(r as Row));
+  if (trips.length) {
+    const mem = await c.execute({
+      sql: `SELECT trip_id, name, picture_url FROM members WHERE trip_id IN (${trips.map(() => "?").join(",")}) ORDER BY created_at`,
+      args: trips.map((t) => t.id),
+    });
+    for (const t of trips) {
+      t.faces = mem.rows
+        .filter((m) => m.trip_id === t.id)
+        .map((m) => ({ name: String(m.name), pictureUrl: s(m.picture_url) }));
+    }
+  }
+  return trips;
 }
 
 export async function createTrip(

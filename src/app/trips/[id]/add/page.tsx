@@ -5,7 +5,7 @@ import { use, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api, yen } from "@/lib/client";
 import type { TripDetail } from "@/lib/types";
-import { TopBar, TripGate, useToast } from "@/components/ui";
+import { Avatar, TopBar, TripGate, useToast } from "@/components/ui";
 
 const CATEGORIES = ["食費", "高速", "燃料", "備品", "その他"];
 const SEP = "・";
@@ -121,7 +121,7 @@ function ExpenseForm({ trip, reload }: { trip: TripDetail; reload: () => Promise
         <span>¥</span>
         <input
           inputMode="numeric"
-          placeholder="金額"
+          placeholder="0"
           aria-label="金額"
           value={amountNum ? amountNum.toLocaleString("ja-JP") : ""}
           onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, "").slice(0, 9))}
@@ -155,6 +155,7 @@ function ExpenseForm({ trip, reload }: { trip: TripDetail; reload: () => Promise
       <div className="opts">
         {trip.members.map((m) => (
           <button type="button" key={m.id} className={`opt ${payerId === m.id ? "on" : ""}`} onClick={() => setPayerId(m.id)}>
+            <Avatar member={m} />
             {m.name}
           </button>
         ))}
@@ -171,6 +172,7 @@ function ExpenseForm({ trip, reload }: { trip: TripDetail; reload: () => Promise
       <div className="opts">
         {trip.members.map((m) => (
           <button type="button" key={m.id} className={`opt ${shareIds.includes(m.id) ? "on" : ""}`} onClick={() => setShareIds(toggle(shareIds, m.id))}>
+            <Avatar member={m} />
             {m.name}
           </button>
         ))}

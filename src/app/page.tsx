@@ -4,23 +4,33 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, formatRange, hasLiff, useAuth, yen } from "@/lib/client";
 import type { TripSummary } from "@/lib/types";
-import { Loading, TopBar } from "@/components/ui";
+import { Avatar, Loading, TopBar } from "@/components/ui";
 
-function TripRow({ t }: { t: TripSummary }) {
+function Faces({ t }: { t: TripSummary }) {
+  const faces = t.faces ?? [];
   return (
-    <Link href={`/trips/${t.id}`}>
-      <div className="grow">
-        <div className="t" style={{ fontWeight: 600 }}>
-          {t.name}
-        </div>
-        <div className="s">{[formatRange(t.startDate, t.endDate), `${t.memberCount}人`].filter(Boolean).join("　")}</div>
+    <div className="faces">
+      {faces.slice(0, 6).map((f, i) => (
+        <Avatar key={i} member={f} />
+      ))}
+      {faces.length > 6 && <span className="muted small" style={{ marginLeft: 4 }}>+{faces.length - 6}</span>}
+    </div>
+  );
+}
+
+function TripCard({ t }: { t: TripSummary }) {
+  const done = t.status === "completed";
+  return (
+    <Link href={`/trips/${t.id}`} className={`trip-card ${done ? "done" : "current"}`}>
+      <div className="head">
+        <div className="name">{t.name}</div>
+        {t.status === "settling" && <span className="tag on">精算中</span>}
+        {done && <span className="tag">精算済</span>}
       </div>
-      <div className="amt">
-        {yen(t.total)}
-        <div>
-          {t.status === "settling" && <span className="tag on">精算中</span>}
-          {t.status === "completed" && <span className="tag">精算済</span>}
-        </div>
+      <div className="meta">{[formatRange(t.startDate, t.endDate), `${t.memberCount}人`, `${t.expenseCount}件`].filter(Boolean).join("　")}</div>
+      <div className="foot">
+        <Faces t={t} />
+        <div className="total">{yen(t.total)}</div>
       </div>
     </Link>
   );
@@ -61,25 +71,15 @@ export default function Home() {
       {trips && (
         <>
           <div className="label">進行中</div>
-          {current.length ? (
-            <div className="rows">
-              {current.map((t) => (
-                <TripRow key={t.id} t={t} />
-              ))}
-            </div>
-          ) : (
-            <div className="empty">進行中の旅行はありません</div>
-          )}
+          {current.length ? current.map((t) => <TripCard key={t.id} t={t} />) : <div className="empty">進行中の旅行はありません</div>}
           {records.length > 0 && (
             <>
-              <div className="label" style={{ marginTop: 24 }}>
+              <div className="label" style={{ marginTop: 20 }}>
                 記録
               </div>
-              <div className="rows">
-                {records.map((t) => (
-                  <TripRow key={t.id} t={t} />
-                ))}
-              </div>
+              {records.map((t) => (
+                <TripCard key={t.id} t={t} />
+              ))}
             </>
           )}
         </>
