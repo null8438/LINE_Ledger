@@ -13,6 +13,7 @@ export default function NewTrip() {
   const [endDate, setEnd] = useState("");
   const [myName, setMyName] = useState(() => (typeof window === "undefined" ? "" : getGuestName()));
   const [others, setOthers] = useState("");
+  const [showOthers, setShowOthers] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,9 +55,16 @@ export default function NewTrip() {
           <input className="input" value={myName} maxLength={20} onChange={(e) => setMyName(e.target.value)} />
         </>
       )}
-      <div className="label">LINEを使わないメンバー（読点区切り）</div>
-      <input className="input" placeholder="例：けんた、ゆい" value={others} onChange={(e) => setOthers(e.target.value)} />
-      <p className="muted small">リンクを開いたLINEユーザーは自動で追加されます。</p>
+      {showOthers ? (
+        <>
+          <div className="label">LINEを使用しないユーザー（読点区切り）</div>
+          <input className="input" placeholder="例：けんた、ゆい" value={others} autoFocus onChange={(e) => setOthers(e.target.value)} />
+        </>
+      ) : (
+        <button type="button" className="textbtn muted" style={{ marginTop: 14, fontSize: 13 }} onClick={() => setShowOthers(true)}>
+          ＋ LINEを使用しないユーザーを追加
+        </button>
+      )}
       <div className="bottombar">
         <div className="in">
           <button className="btn primary" disabled={busy || !name.trim() || (isGuest && !myName.trim())}>
