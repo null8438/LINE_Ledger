@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "旅の会計",
-  description: "LINEグループで使える旅行の割り勘・精算アプリ",
+  description: "旅行の立て替えと精算",
 };
 
 export const viewport: Viewport = {
