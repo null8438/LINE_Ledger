@@ -19,9 +19,9 @@
   ],
   "vars": {
     // LINE Developers の LIFF ID（例: 1234567890-AbCdEfGh）。空ならLINEなしのゲストモード
-    "LIFF_ID": "",
+    "LIFF_ID": "2012783888-SVhwASL0",
     // LIFF を作った LINE ログインチャネルのチャネルID（IDトークン検証用）
-    "LINE_LOGIN_CHANNEL_ID": ""
+    "LINE_LOGIN_CHANNEL_ID": "2012783888"
   },
   "observability": { "enabled": true }
 }
