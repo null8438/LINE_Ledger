@@ -5,27 +5,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, canLoginWithLine, setGuestName, useAuth } from "@/lib/client";
 import type { Member, TripDetail } from "@/lib/types";
 
-const COLORS = ["#f97316", "#3b82f6", "#a855f7", "#ec4899", "#14b8a6", "#eab308", "#6366f1", "#ef4444", "#22c55e"];
-
-export function Avatar({ member, size }: { member?: Pick<Member, "name" | "pictureUrl" | "id"> | null; size?: number }) {
-  const style = size ? { width: size, height: size, fontSize: size * 0.42 } : undefined;
-  if (!member) return <span className="avatar" style={style} />;
-  if (member.pictureUrl) {
+export function Avatar({ member }: { member?: Pick<Member, "name" | "pictureUrl"> | null }) {
+  if (member?.pictureUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img className="avatar" src={member.pictureUrl} alt="" style={style} />;
+    return <img className="avatar" src={member.pictureUrl} alt="" />;
   }
-  let h = 0;
-  for (const ch of member.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return (
-    <span className="avatar" style={{ ...style, background: COLORS[h % COLORS.length] }}>
-      {[...member.name][0] ?? "?"}
-    </span>
-  );
+  return <span className="avatar">{member ? ([...member.name][0] ?? "") : ""}</span>;
 }
 
-export function Header({ title, back, right }: { title: string; back?: string; right?: React.ReactNode }) {
+export function TopBar({ title, back, right }: { title: string; back?: string; right?: React.ReactNode }) {
   return (
-    <div className="header">
+    <div className="topbar">
       {back && (
         <Link href={back} className="back" aria-label="戻る">
           ‹
@@ -37,8 +27,8 @@ export function Header({ title, back, right }: { title: string; back?: string; r
   );
 }
 
-export function Spinner() {
-  return <div className="spinner" />;
+export function Loading() {
+  return <div className="loading">読み込み中…</div>;
 }
 
 export function useToast() {
@@ -47,10 +37,9 @@ export function useToast() {
   const show = useCallback((m: string) => {
     setMsg(m);
     clearTimeout(t.current);
-    t.current = setTimeout(() => setMsg(null), 2200);
+    t.current = setTimeout(() => setMsg(null), 2000);
   }, []);
-  const node = msg ? <div className="toast">{msg}</div> : null;
-  return [node, show] as const;
+  return [msg ? <div className="toast">{msg}</div> : null, show] as const;
 }
 
 export function useTrip(id: string) {
@@ -71,11 +60,8 @@ export function useTrip(id: string) {
   return { trip, error, reload };
 }
 
-/**
- * まだ旅行に参加していない人に「あなたは誰？」を選んでもらう。
- * LINEでログインしていて、引き継ぐ候補がいなければ自動で参加する。
- */
-export function JoinGate({ trip, onJoined }: { trip: TripDetail; onJoined: () => void }) {
+/** 旅行に未参加の人にメンバーを選んでもらう。LINEログイン済みで候補がいなければ自動参加。 */
+function JoinGate({ trip, onJoined }: { trip: TripDetail; onJoined: () => void }) {
   const { me, loginWithLine } = useAuth();
   const [name, setName] = useState(me?.name ?? "");
   const [busy, setBusy] = useState(false);
@@ -106,71 +92,55 @@ export function JoinGate({ trip, onJoined }: { trip: TripDetail; onJoined: () =>
     if (auto) join({ name: me?.name ?? undefined });
   }, [auto]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (auto && !error) return <Spinner />;
+  if (auto && !error) return <Loading />;
 
   return (
-    <div className="container">
-      <Header title={trip.name} back="/" />
-      <div className="card">
-        <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>はじめまして！</h2>
-        <p className="muted" style={{ margin: "0 0 16px", fontSize: 14 }}>
-          この旅行の会計に参加します。あなたはどなたですか？
-          {me?.kind === "line" ? "（次回からは自動で認識されます）" : "（この端末で次回から自動で認識されます）"}
-        </p>
-        {error && <div className="error">{error}</div>}
-        {unlinked.length > 0 && (
-          <div className="field">
-            <div className="label">メンバー一覧から選ぶ</div>
-            <div className="chips">
-              {unlinked.map((m) => (
-                <button key={m.id} className="chip" disabled={busy} onClick={() => join({ memberId: m.id })}>
-                  <Avatar member={m} /> {m.name}
-                </button>
-              ))}
-            </div>
+    <div className="page no-bar">
+      <TopBar title={trip.name} back="/" />
+      {error && <div className="error">{error}</div>}
+      {unlinked.length > 0 && (
+        <>
+          <div className="label">あなたはどれですか</div>
+          <div className="opts">
+            {unlinked.map((m) => (
+              <button key={m.id} className="opt" disabled={busy} onClick={() => join({ memberId: m.id })}>
+                {m.name}
+              </button>
+            ))}
           </div>
-        )}
-        <div className="field">
-          <div className="label">{unlinked.length > 0 ? "いなければ新しく参加" : "名前を入力して参加"}</div>
-          <div className="btn-row">
-            <input
-              className="input"
-              placeholder="名前"
-              value={name}
-              maxLength={20}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <button
-              className="btn primary"
-              style={{ flex: "0 0 auto" }}
-              disabled={busy || !name.trim()}
-              onClick={() => join({ name: name.trim() })}
-            >
-              参加
-            </button>
-          </div>
-        </div>
-        {canLoginWithLine() && (
-          <button className="btn outline block" onClick={loginWithLine}>
-            LINEでログインして参加
-          </button>
-        )}
+        </>
+      )}
+      <div className="label">{unlinked.length > 0 ? "一覧にいない場合" : "名前を入力して参加"}</div>
+      <div className="hstack">
+        <input className="input" placeholder="名前" value={name} maxLength={20} onChange={(e) => setName(e.target.value)} />
+        <button className="btn primary" style={{ flex: "0 0 auto", height: 40 }} disabled={busy || !name.trim()} onClick={() => join({ name: name.trim() })}>
+          参加
+        </button>
       </div>
+      {canLoginWithLine() && (
+        <button className="btn block" style={{ marginTop: 12 }} onClick={loginWithLine}>
+          LINEでログイン
+        </button>
+      )}
     </div>
   );
 }
 
-/** 旅行ページ共通：読み込み → 未参加なら JoinGate → 本体 */
+/** 旅行ページ共通：読み込み → 未参加ならメンバー選択 → 本体 */
 export function TripGate({ id, children }: { id: string; children: (trip: TripDetail, reload: () => Promise<void>) => React.ReactNode }) {
   const { trip, error, reload } = useTrip(id);
   if (error && !trip)
     return (
-      <div className="container">
-        <Header title="エラー" back="/" />
+      <div className="page no-bar">
+        <TopBar title="" back="/" />
         <div className="error">{error}</div>
       </div>
     );
-  if (!trip) return <Spinner />;
+  if (!trip) return <Loading />;
   if (!trip.meId) return <JoinGate trip={trip} onJoined={reload} />;
   return <>{children(trip, reload)}</>;
+}
+
+export function signed(n: number, yen: (n: number) => string) {
+  return n > 0 ? `+${yen(n)}` : n < 0 ? `-${yen(-n)}` : yen(0);
 }

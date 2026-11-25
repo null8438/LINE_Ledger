@@ -5,92 +5,84 @@ import { use, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api, yen } from "@/lib/client";
 import type { TripDetail } from "@/lib/types";
-import { Avatar, Header, TripGate } from "@/components/ui";
+import { TopBar, TripGate, useToast } from "@/components/ui";
 
-const PRESETS = ["ごはん", "交通費", "宿泊", "ガソリン", "高速代", "駐車場", "お酒", "おやつ", "観光", "おみやげ", "買い出し"];
+const CATEGORIES = ["食費", "高速", "燃料", "備品", "その他"];
+const SEP = "・";
 
 export default function AddPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   return <TripGate id={id}>{(trip, reload) => <ExpenseForm trip={trip} reload={reload} />}</TripGate>;
 }
 
+/** 保存済みの項目名を「カテゴリ」と「自由入力」に戻す */
+function parseTitle(title: string) {
+  const parts = title.split(SEP);
+  const cats = parts.filter((p) => CATEGORIES.includes(p));
+  const free = parts.filter((p) => !CATEGORIES.includes(p)).join(SEP);
+  return { cats, free };
+}
+
 function ExpenseForm({ trip, reload }: { trip: TripDetail; reload: () => Promise<void> }) {
   const editId = useSearchParams().get("edit");
   const editing = editId ? trip.expenses.find((e) => e.id === editId) : undefined;
   const allIds = useMemo(() => trip.members.map((m) => m.id), [trip.members]);
+  const initial = editing ? parseTitle(editing.title) : { cats: [], free: "" };
 
   const [amount, setAmount] = useState(editing ? String(editing.amount) : "");
-  const [title, setTitle] = useState(editing?.title ?? "");
+  const [cats, setCats] = useState<string[]>(initial.cats);
+  const [useFree, setUseFree] = useState(!!initial.free);
+  const [free, setFree] = useState(initial.free);
   const [payerId, setPayerId] = useState(editing?.payerId ?? trip.meId!);
   const [shareIds, setShareIds] = useState<string[]>(editing?.shareIds ?? allIds);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [toast, showToast] = useToast();
 
-  const amountNum = Number(amount.replace(/[^\d]/g, "")) || 0;
-  const per = shareIds.length ? Math.floor(amountNum / shareIds.length) : 0;
   const back = `/trips/${trip.id}`;
+  const amountNum = Number(amount) || 0;
+  const title = [...CATEGORIES.filter((c) => cats.includes(c)), ...(useFree && free.trim() ? [free.trim()] : [])].join(SEP);
+  const per = shareIds.length ? Math.ceil(amountNum / shareIds.length) : 0;
+  const tripPer = trip.members.length ? Math.round(trip.total / trip.members.length) : 0;
 
   if (trip.status !== "active") {
     return (
-      <div className="container">
-        <Header title={trip.name} back={back} />
-        <div className="notice warn">
-          この旅行はすでに会計済みのため、立て替えを追加できません。追加したい場合は旅行ページの「会計をやり直す」から戻してください。
-        </div>
-        <Link href={back} className="btn primary block" style={{ marginTop: 16 }}>
-          旅行のページへ
+      <div className="page no-bar">
+        <TopBar title={trip.name} back={back} />
+        <div className="note">会計済みのため追加できません。旅行ページの「会計をやり直す」で入力できる状態に戻せます。</div>
+        <Link href={back} className="btn block" style={{ marginTop: 12 }}>
+          旅行ページへ
         </Link>
       </div>
     );
   }
 
-  if (done) {
-    return (
-      <div className="container">
-        <Header title={trip.name} back={back} />
-        <div className="card center" style={{ padding: 28 }}>
-          <div style={{ fontSize: 44, color: "var(--accent)" }}>✓</div>
-          <p style={{ fontWeight: 800, fontSize: 18, margin: "4px 0" }}>{editing ? "更新しました" : "登録しました"}</p>
-          <p className="muted" style={{ margin: 0 }}>{done}</p>
-        </div>
-        <div className="btn-row" style={{ marginTop: 16 }}>
-          <Link href={back} className="btn outline">
-            旅行のページへ
-          </Link>
-          {!editing && (
-            <button
-              className="btn primary"
-              onClick={() => {
-                setDone(null);
-                setAmount("");
-                setTitle("");
-                setPayerId(trip.meId!);
-                setShareIds(allIds);
-              }}
-            >
-              続けて追加
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
-  const toggleShare = (mid: string) =>
-    setShareIds((ids) => (ids.includes(mid) ? ids.filter((x) => x !== mid) : [...ids, mid]));
+  const reset = () => {
+    setAmount("");
+    setCats([]);
+    setUseFree(false);
+    setFree("");
+    setPayerId(trip.meId!);
+    setShareIds(allIds);
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const body = { title: title.trim(), amount: amountNum, payerId, shareIds };
-      if (editing) await api(`/api/trips/${trip.id}/expenses/${editing.id}`, { method: "PATCH", body });
-      else await api(`/api/trips/${trip.id}/expenses`, { method: "POST", body });
-      const payer = trip.members.find((m) => m.id === payerId)?.name;
-      setDone(`${body.title} ${yen(amountNum)}（${payer}が立て替え）`);
+      const body = { title, amount: amountNum, payerId, shareIds };
+      if (editing) {
+        await api(`/api/trips/${trip.id}/expenses/${editing.id}`, { method: "PATCH", body });
+        location.href = back;
+        return;
+      }
+      await api(`/api/trips/${trip.id}/expenses`, { method: "POST", body });
       await reload();
+      reset();
+      showToast(`${title} ${yen(amountNum)} を登録しました`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -99,7 +91,7 @@ function ExpenseForm({ trip, reload }: { trip: TripDetail; reload: () => Promise
   };
 
   const remove = async () => {
-    if (!editing || !confirm("この立て替えを削除しますか？")) return;
+    if (!editing || !confirm("削除しますか？")) return;
     setBusy(true);
     try {
       await api(`/api/trips/${trip.id}/expenses/${editing.id}`, { method: "DELETE" });
@@ -111,90 +103,93 @@ function ExpenseForm({ trip, reload }: { trip: TripDetail; reload: () => Promise
   };
 
   return (
-    <form className="container" onSubmit={submit}>
-      <Header title={editing ? "立て替えを編集" : "立て替えを追加"} back={back} />
-      <p className="muted" style={{ margin: "-8px 0 16px", fontSize: 14 }}>
-        {trip.name}
-      </p>
+    <form className="page" onSubmit={submit}>
+      <TopBar
+        title={trip.name}
+        back={back}
+        right={
+          <span className="muted small num" style={{ textAlign: "right", lineHeight: 1.3 }}>
+            合計 {yen(trip.total)}
+            <br />
+            1人 {yen(tripPer)}
+          </span>
+        }
+      />
       {error && <div className="error">{error}</div>}
 
-      <div className="field">
-        <label htmlFor="amount">金額</label>
-        <div className="amount-input">
-          <span>¥</span>
-          <input
-            id="amount"
-            inputMode="numeric"
-            placeholder="0"
-            autoFocus={!editing}
-            value={amountNum ? amountNum.toLocaleString("ja-JP") : ""}
-            onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, "").slice(0, 9))}
-          />
-        </div>
+      <div className="amount">
+        <span>¥</span>
+        <input
+          inputMode="numeric"
+          placeholder="金額"
+          aria-label="金額"
+          value={amountNum ? amountNum.toLocaleString("ja-JP") : ""}
+          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, "").slice(0, 9))}
+        />
       </div>
 
-      <div className="field">
-        <label htmlFor="title">項目</label>
-        <input id="title" className="input" placeholder="例：夕食（居酒屋）" value={title} maxLength={40} onChange={(e) => setTitle(e.target.value)} />
-        <div className="chips" style={{ marginTop: 10 }}>
-          {PRESETS.map((p) => (
-            <button type="button" key={p} className={`chip ${title === p ? "on" : ""}`} onClick={() => setTitle(p)}>
-              {p}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="field">
-        <div className="label">立て替えた人</div>
-        <div className="chips">
-          {trip.members.map((m) => (
-            <button type="button" key={m.id} className={`chip ${payerId === m.id ? "on" : ""}`} onClick={() => setPayerId(m.id)}>
-              <Avatar member={m} />
-              {m.name}
-              {m.id === trip.meId && <span className="muted" style={{ fontSize: 12 }}>（自分）</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="field">
-        <div className="label" style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>
-            割り勘する人（{shareIds.length}人{per ? `・1人あたり約${yen(per)}` : ""}）
-          </span>
-          <button
-            type="button"
-            className="link-btn"
-            style={{ padding: 0, fontSize: 13 }}
-            onClick={() => setShareIds(shareIds.length === allIds.length ? [] : allIds)}
-          >
-            {shareIds.length === allIds.length ? "すべて外す" : "全員"}
+      <div className="label">項目（複数可）</div>
+      <div className="opts grid">
+        {CATEGORIES.map((c) => (
+          <button type="button" key={c} className={`opt ${cats.includes(c) ? "on" : ""}`} onClick={() => setCats(toggle(cats, c))}>
+            {c}
           </button>
-        </div>
-        <div className="chips">
-          {trip.members.map((m) => (
-            <button type="button" key={m.id} className={`chip ${shareIds.includes(m.id) ? "on" : ""}`} onClick={() => toggleShare(m.id)}>
-              <Avatar member={m} />
-              {m.name}
-            </button>
-          ))}
-        </div>
+        ))}
+        <button type="button" className={`opt ${useFree ? "on" : ""}`} onClick={() => setUseFree(!useFree)}>
+          入力する
+        </button>
+      </div>
+      {useFree && (
+        <input
+          className="input"
+          style={{ marginTop: 6 }}
+          placeholder="項目名"
+          value={free}
+          maxLength={30}
+          autoFocus
+          onChange={(e) => setFree(e.target.value)}
+        />
+      )}
+
+      <div className="label">払った人</div>
+      <div className="opts">
+        {trip.members.map((m) => (
+          <button type="button" key={m.id} className={`opt ${payerId === m.id ? "on" : ""}`} onClick={() => setPayerId(m.id)}>
+            {m.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="label">
+        <span>
+          割り勘する人　{shareIds.length}人{per ? `・1人 ${yen(per)}` : ""}
+        </span>
+        <button type="button" className="textbtn" style={{ padding: 0, fontSize: 12 }} onClick={() => setShareIds(shareIds.length === allIds.length ? [] : allIds)}>
+          {shareIds.length === allIds.length ? "全解除" : "全員"}
+        </button>
+      </div>
+      <div className="opts">
+        {trip.members.map((m) => (
+          <button type="button" key={m.id} className={`opt ${shareIds.includes(m.id) ? "on" : ""}`} onClick={() => setShareIds(toggle(shareIds, m.id))}>
+            {m.name}
+          </button>
+        ))}
       </div>
 
       {editing && (
-        <button type="button" className="btn danger block" onClick={remove} disabled={busy}>
-          この立て替えを削除
+        <button type="button" className="textbtn danger" style={{ marginTop: 16 }} onClick={remove} disabled={busy}>
+          この記録を削除
         </button>
       )}
 
-      <div className="fab-bar">
-        <div className="inner">
-          <button className="btn primary" disabled={busy || !amountNum || !title.trim() || !shareIds.length}>
-            {editing ? "更新する" : amountNum ? `${yen(amountNum)} を登録` : "登録する"}
+      <div className="bottombar">
+        <div className="in">
+          <button className="btn primary" disabled={busy || !amountNum || !title || !shareIds.length}>
+            {editing ? "保存" : "登録"}
           </button>
         </div>
       </div>
+      {toast}
     </form>
   );
 }
